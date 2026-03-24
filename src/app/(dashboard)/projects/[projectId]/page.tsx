@@ -11,7 +11,7 @@ import { useEffect } from "react";
 import { LoadingSpinner } from "@/src/components/ui/LoadingSpinner";
 import { NotFound } from "@/src/components/ui/NotFound";
 import { Project, Chat, ProjectDocument, ProjectSettings } from "@/src/lib/types";
-
+import { useRouter } from 'next/navigation';
 
 interface ProjectPageProps {
   params: Promise<{
@@ -29,6 +29,7 @@ interface ProjectData {
 function ProjectPage({ params }: ProjectPageProps) {
   const { projectId } = use(params);
   const { getToken, userId } = useAuth();
+  const router = useRouter();
 
 
   // Data State
@@ -144,6 +145,7 @@ function ProjectPage({ params }: ProjectPageProps) {
       );
 
       const savedChat = result.data;
+      router.push(`/projects/${projectId}/chats/${savedChat.id}`);
 
       // Update local state
       setData((prev) => ({
@@ -180,7 +182,7 @@ function ProjectPage({ params }: ProjectPageProps) {
   };
 
   const handleChatClick = (chatId: string) => {
-    console.log("Navigate to chat:", chatId);
+    router.push(`/projects/${projectId}/chats/${chatId}`);
   };
 
   //   Document-related methods
