@@ -155,17 +155,111 @@ function ProjectPage({ params }: ProjectPageProps) {
   };
 
   //   Document-related methods
+   // Document-related methods
   const handleDocumentUpload = async (files: File[]) => {
-    console.log("Upload files", files);
+    if (!userId) return;
+
+    const token = await getToken();
+    const uploadedDocuments: ProjectDocument[] = [];
+
+    // Process all files in parallel
+
+    const uploadPromises = files.map(async (file) => {
+      try {
+        // Step 1: Get presigned URL
+        const uploadData = await apiClient.post(
+          `/api/projects/${projectId}/files/upload-url`,
+          {
+            filename: file.name,
+            file_size: file.size,
+            file_type: file.type,
+          },
+          token
+        );
+
+        const { upload_url, s3_key } = uploadData.data;
+
+        await apiClient.uploadToS3(upload_url, file);
+
+        // Step 3: Confirm upload to the server (starts background processing)
+        const updatedDocument = await apiClient.post(
+          `/api/projects/${projectId}/files/confirm`,
+          {
+            s3_key,
+          },
+          token
+        );
+
+        uploadedDocuments.push(updatedDocument.data);
+      } catch (err) {
+        toast.error(`Failed to upload ${file.name}`);
+      }
+    });
+
+    await Promise.allSettled(uploadPromises);
+  // Update local state with successfully uploaded docuemnts
+
+    if (uploadedDocuments.length > 0) {
+      setData((prev) => ({
+        ...prev,
+        documents: [...uploadedDocuments, ...prev.documents],
+      }));
+
+      toast.success(`${uploadedDocuments.length} file(s) uploaded`);
+    }
   };
 
+
   const handleDocumentDelete = async (documentId: string) => {
-    console.log("Document Deleted");
+    if (!userId) return;
+
+    try {
+      const token = await getToken();
+
+      await apiClient.delete(
+        `/api/projects/${projectId}/files/${documentId}`,
+        token
+      );
+
+      // Update local state - remove the deleted document
+      setData((prev) => ({
+        ...prev,
+        documents: prev.documents.filter((doc) => doc.id !== documentId),
+      }));
+
+      toast.success("Document deleted successfully!");
+    } catch (err) {
+      toast.error("Document deletion failed");
+    }
   };
 
   const handleUrlAdd = async (url: string) => {
-    console.log("Add URL", url);
+    if (!userId) return;
+    try {
+      const token = await getToken();
+
+      const result = await apiClient.post(
+        `/api/projects/${projectId}/urls`,
+        {
+          url,
+        },
+        token
+      );
+
+      const newDocument = result.data;
+
+      // Update local state
+      setData((prev) => ({
+        ...prev,
+        documents: [newDocument, ...prev.documents],
+      }));
+
+      toast.success("Website added successfully!");
+    } catch (err) {
+      toast.error("Failed to add website");
+    }
   };
+
 
   const handleOpenDocument = (documentId: string) => {
     console.log("Open document", documentId);
@@ -175,11 +269,48 @@ function ProjectPage({ params }: ProjectPageProps) {
   // Project settings
 
   const handleDraftSettings = (updates: any) => {
-    console.log("Update local state with draft settings", updates);
+    setData((prev) => {
+      // If no settings exist yet, we can't update them
+      if (!prev.settings) {
+        console.warn("Cannot update settings: not loaded yet");
+        return prev;
+      }
+
+      // Merge the updates into existing settings
+      return {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          ...updates,
+        },
+      };
+    });
   };
 
+
   const handlePublishSettings = async () => {
-    console.log("Make API call to publish settings");
+    if (!userId || !data.settings) {
+      toast.error("Cannot save settings");
+    }
+
+    try {
+      const token = await getToken();
+
+      const result = await apiClient.put(
+        `/api/projects/${projectId}/settings`,
+        data.settings,
+        token
+      );
+
+      setData((prev) => ({
+        ...prev,
+        settings: result.data,
+      }));
+
+      toast.success("Settings saved successfully!");
+    } catch (err) {
+      toast.error("Failed to save settings!");
+    }
   };
 
   if (loading) {
