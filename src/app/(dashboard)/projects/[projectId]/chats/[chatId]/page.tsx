@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { ChatInterface } from "@/src/components/chat/ChatInterface";
-import { ChatWithMessages } from "@/src/lib/types";
+import { ChatWithMessages, Message } from "@/src/lib/types";
 import { apiClient } from "@/src/lib/api";
 import { MessageFeedbackModal } from "@/src/components/chat/MessageFeedbackModel";
 import toast from "react-hot-toast";
